@@ -1,0 +1,1163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Feature Notes Tracker (Single-File)</title>
+  <style>
+    :root{
+      --bg:#0b0f14;
+      --panel:#101723;
+      --panel2:#0f1620;
+      --text:#e6edf3;
+      --muted:#a8b3c1;
+      --border:#223043;
+      --accent:#67e8f9;
+      --good:#34d399;
+      --warn:#fbbf24;
+      --bad:#fb7185;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 14px;
+      --pad: 14px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      font-family: var(--sans);
+      background: radial-gradient(1200px 900px at 10% 10%, rgba(103,232,249,.08), transparent 55%),
+                  radial-gradient(900px 700px at 90% 15%, rgba(52,211,153,.06), transparent 55%),
+                  var(--bg);
+      color: var(--text);
+    }
+
+    .wrap{
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    header{
+      display:flex;
+      align-items:flex-start;
+      gap: 14px;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .titleBlock h1{
+      margin:0;
+      font-size: 20px;
+      letter-spacing: .2px;
+    }
+    .titleBlock p{
+      margin:6px 0 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .topActions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      align-items:center;
+    }
+
+    button, input, textarea{
+      font: inherit;
+      color: inherit;
+    }
+
+    .btn{
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      padding: 9px 12px;
+      border-radius: 12px;
+      cursor:pointer;
+      box-shadow: 0 6px 20px rgba(0,0,0,.18);
+      transition: transform .06s ease, border-color .15s ease, background .15s ease;
+      user-select:none;
+    }
+    .btn:hover{ border-color: rgba(103,232,249,.35); }
+    .btn:active{ transform: translateY(1px); }
+
+    .btnPrimary{
+      border-color: rgba(103,232,249,.45);
+      background: linear-gradient(180deg, rgba(103,232,249,.18), rgba(103,232,249,.06));
+    }
+
+    .btnDanger{
+      border-color: rgba(251,113,133,.45);
+      background: linear-gradient(180deg, rgba(251,113,133,.16), rgba(251,113,133,.05));
+    }
+
+    .btnGhost{
+      background: transparent;
+      box-shadow:none;
+    }
+
+    .panel{
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+
+    .addBar{
+      padding: 14px;
+      background: rgba(255,255,255,.02);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 860px){
+      .grid{ grid-template-columns: 1fr; }
+      header{ flex-direction: column; }
+      .topActions{ justify-content:flex-start; }
+    }
+
+    label{
+      display:block;
+      font-size: 12px;
+      color: var(--muted);
+      margin: 0 0 6px 2px;
+    }
+
+    input[type="text"], textarea{
+      width: 100%;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,.22);
+      border-radius: 12px;
+      padding: 10px 12px;
+      outline:none;
+    }
+
+    textarea{
+      min-height: 92px;
+      resize: vertical;
+      font-family: var(--sans);
+    }
+
+    .small{
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 6px;
+      line-height: 1.35;
+    }
+
+    .row{
+      display:flex;
+      gap: 10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .tabs{
+      display:flex;
+      gap: 8px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0,0,0,.15);
+      align-items:center;
+      justify-content: space-between;
+    }
+
+    .tabButtons{
+      display:flex; gap:8px; align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .tabBtn{
+      padding: 8px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.03);
+      cursor:pointer;
+      user-select:none;
+    }
+    .tabBtn[data-active="true"]{
+      border-color: rgba(103,232,249,.45);
+      background: rgba(103,232,249,.10);
+    }
+
+    .tabMeta{
+      display:flex;
+      gap: 10px;
+      align-items:center;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .list{
+      padding: 10px;
+    }
+
+    .empty{
+      padding: 18px;
+      color: var(--muted);
+      font-size: 13px;
+      text-align:center;
+      border: 1px dashed rgba(168,179,193,.25);
+      border-radius: 14px;
+      margin: 8px;
+      background: rgba(0,0,0,.12);
+    }
+
+    .card{
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      margin: 10px 6px;
+      overflow:hidden;
+      background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
+    }
+
+    .card.dragging{
+      opacity: .55;
+      outline: 2px solid rgba(103,232,249,.35);
+      outline-offset: 2px;
+    }
+
+    .cardHeader{
+      display:flex;
+      gap: 10px;
+      align-items:center;
+      padding: 10px 10px 10px 10px;
+      background: rgba(0,0,0,.12);
+      border-bottom: 1px solid rgba(34,48,67,.8);
+    }
+
+    .dragHandle{
+      width: 30px;
+      height: 30px;
+      border-radius: 10px;
+      display:grid;
+      place-items:center;
+      border: 1px solid rgba(34,48,67,.9);
+      background: rgba(255,255,255,.03);
+      cursor: grab;
+      user-select:none;
+      flex: 0 0 auto;
+      font-family: var(--mono);
+      color: rgba(230,237,243,.75);
+    }
+    .dragHandle:active{ cursor: grabbing; }
+
+    .toggleBtn{
+      width: 34px;
+      height: 30px;
+      border-radius: 10px;
+      display:grid;
+      place-items:center;
+      border: 1px solid rgba(34,48,67,.9);
+      background: rgba(255,255,255,.03);
+      cursor:pointer;
+      user-select:none;
+      flex: 0 0 auto;
+    }
+
+    .cardTitle{
+      flex: 1 1 auto;
+      min-width: 220px;
+    }
+    .cardTitle .name{
+      font-weight: 650;
+      font-size: 14px;
+      line-height: 1.2;
+    }
+    .cardTitle .meta{
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--muted);
+      display:flex;
+      gap: 10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .pill{
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(34,48,67,.9);
+      background: rgba(255,255,255,.03);
+      color: rgba(230,237,243,.86);
+    }
+    .pill.good{ border-color: rgba(52,211,153,.35); background: rgba(52,211,153,.08); }
+    .pill.warn{ border-color: rgba(251,191,36,.35); background: rgba(251,191,36,.08); }
+    .pill.bad{ border-color: rgba(251,113,133,.35); background: rgba(251,113,133,.08); }
+
+    .cardActions{
+      display:flex;
+      gap: 8px;
+      align-items:center;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .miniBtn{
+      padding: 7px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(34,48,67,.9);
+      background: rgba(255,255,255,.03);
+      cursor:pointer;
+      user-select:none;
+      font-size: 12px;
+    }
+    .miniBtn:hover{ border-color: rgba(103,232,249,.35); }
+
+    .miniDanger:hover{ border-color: rgba(251,113,133,.55); }
+
+    .cardBody{
+      padding: 12px 12px 14px 12px;
+      display:none;
+    }
+    .cardBody[data-open="true"]{ display:block; }
+
+    .sectionTitle{
+      font-size: 12px;
+      color: var(--muted);
+      margin: 10px 0 6px 0;
+    }
+
+    .contentBox{
+      border: 1px solid rgba(34,48,67,.9);
+      background: rgba(0,0,0,.18);
+      border-radius: 12px;
+      padding: 10px 12px;
+      white-space: pre-wrap;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .editor{
+      margin-top: 10px;
+      border-top: 1px solid rgba(34,48,67,.6);
+      padding-top: 10px;
+      display:none;
+    }
+    .editor[data-editing="true"]{ display:block; }
+
+    .editor textarea{
+      min-height: 110px;
+      font-family: var(--sans);
+    }
+
+    .footerHint{
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .kbd{
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 8px;
+      border: 1px solid rgba(34,48,67,.9);
+      background: rgba(255,255,255,.03);
+      color: rgba(230,237,243,.85);
+    }
+
+    .searchBox{
+      width: 260px;
+      max-width: 50vw;
+      padding: 8px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(34,48,67,.9);
+      background: rgba(0,0,0,.18);
+      outline: none;
+    }
+
+    .tagLine{
+      color: var(--muted);
+      font-size: 12px;
+      margin-left: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="titleBlock">
+        <h1>Feature Notes Tracker</h1>
+        <p>
+          Single-file HTML. Add features with a title + details, toggle open/closed, drag-drop to prioritize,
+          mark complete to auto-move into the Completed tab, and keep notes even after completion.
+        </p>
+      </div>
+      <div class="topActions">
+        <button class="btn btnPrimary" id="btnAddQuick">Add Feature</button>
+        <button class="btn btnGhost" id="btnExport">Export JSON</button>
+        <button class="btn btnGhost" id="btnImport">Import JSON</button>
+        <button class="btn btnDanger" id="btnReset">Reset All</button>
+      </div>
+    </header>
+
+    <div class="panel">
+      <div class="addBar" id="addBar">
+        <div class="grid">
+          <div>
+            <label for="newTitle">Feature title</label>
+            <input id="newTitle" type="text" placeholder="e.g., Task More Panel (Questions/Deps/Waiting/Blocker)" />
+            <div class="small">Tip: keep titles short and scannable.</div>
+          </div>
+
+          <div>
+            <label for="newDetails">Details (paste your spec / notes)</label>
+            <textarea id="newDetails" placeholder="Paste your feature notes here..."></textarea>
+            <div class="small">
+              You can still edit later. Drag items to prioritize in each tab.
+            </div>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px; justify-content: space-between;">
+          <div class="row">
+            <button class="btn btnPrimary" id="btnAdd">Add to Active</button>
+            <button class="btn" id="btnClearDraft">Clear Draft</button>
+            <span class="tagLine">Draft autosaves locally.</span>
+          </div>
+
+          <div class="row">
+            <input class="searchBox" id="search" type="text" placeholder="Search title/details/notes..." />
+          </div>
+        </div>
+
+        <div class="footerHint">
+          Keyboard: <span class="kbd">Ctrl</span> + <span class="kbd">Enter</span> to add. Items save to <span class="kbd">localStorage</span>.
+        </div>
+      </div>
+
+      <div class="tabs">
+        <div class="tabButtons">
+          <button class="tabBtn" id="tabActive" data-active="true">Active (<span id="countActive">0</span>)</button>
+          <button class="tabBtn" id="tabCompleted" data-active="false">Completed (<span id="countCompleted">0</span>)</button>
+        </div>
+        <div class="tabMeta" id="tabMeta">
+          <span id="orderHint">Drag to prioritize within this tab.</span>
+        </div>
+      </div>
+
+      <div class="list" id="list"></div>
+    </div>
+  </div>
+
+  <input type="file" id="fileInput" accept="application/json" style="display:none" />
+
+  <script>
+    (function(){
+      // -----------------------------
+      // Storage + State
+      // -----------------------------
+      const STORAGE_KEY = "feature_notes_tracker_v1";
+      const DRAFT_KEY = "feature_notes_tracker_v1_draft";
+
+      /** @type {{ items: FeatureItem[] }} */
+      let state = loadState();
+
+      /** @type {"active"|"completed"} */
+      let currentTab = "active";
+
+      /** @type {string} */
+      let searchQuery = "";
+
+      // -----------------------------
+      // DOM
+      // -----------------------------
+      const el = {
+        newTitle: document.getElementById("newTitle"),
+        newDetails: document.getElementById("newDetails"),
+        btnAdd: document.getElementById("btnAdd"),
+        btnAddQuick: document.getElementById("btnAddQuick"),
+        btnClearDraft: document.getElementById("btnClearDraft"),
+        btnReset: document.getElementById("btnReset"),
+        btnExport: document.getElementById("btnExport"),
+        btnImport: document.getElementById("btnImport"),
+        fileInput: document.getElementById("fileInput"),
+        tabActive: document.getElementById("tabActive"),
+        tabCompleted: document.getElementById("tabCompleted"),
+        countActive: document.getElementById("countActive"),
+        countCompleted: document.getElementById("countCompleted"),
+        list: document.getElementById("list"),
+        search: document.getElementById("search"),
+      };
+
+      // -----------------------------
+      // Types (docs-only)
+      // -----------------------------
+      /**
+       * @typedef {Object} FeatureItem
+       * @property {string} id
+       * @property {string} title
+       * @property {string} details
+       * @property {string} notes
+       * @property {boolean} completed
+       * @property {boolean} open
+       * @property {number} orderActive
+       * @property {number} orderCompleted
+       * @property {number} createdAt
+       * @property {number} updatedAt
+       */
+
+      // -----------------------------
+      // Init
+      // -----------------------------
+      hydrateDraft();
+      bindEvents();
+      render();
+
+      // -----------------------------
+      // Events
+      // -----------------------------
+      function bindEvents(){
+        el.btnAdd.addEventListener("click", addFromDraft);
+        el.btnAddQuick.addEventListener("click", () => {
+          el.newTitle.focus();
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        });
+
+        el.btnClearDraft.addEventListener("click", () => {
+          el.newTitle.value = "";
+          el.newDetails.value = "";
+          saveDraft();
+          el.newTitle.focus();
+        });
+
+        el.btnReset.addEventListener("click", () => {
+          const ok = confirm("Reset ALL feature notes? This will delete everything saved in localStorage.");
+          if(!ok) return;
+          state = { items: [] };
+          saveState();
+          render();
+        });
+
+        el.btnExport.addEventListener("click", exportJSON);
+        el.btnImport.addEventListener("click", () => el.fileInput.click());
+        el.fileInput.addEventListener("change", importJSON);
+
+        el.tabActive.addEventListener("click", () => switchTab("active"));
+        el.tabCompleted.addEventListener("click", () => switchTab("completed"));
+
+        el.search.addEventListener("input", () => {
+          searchQuery = el.search.value.trim().toLowerCase();
+          render();
+        });
+
+        // Draft autosave
+        el.newTitle.addEventListener("input", saveDraft);
+        el.newDetails.addEventListener("input", saveDraft);
+
+        // Ctrl+Enter to add
+        document.addEventListener("keydown", (e) => {
+          if((e.ctrlKey || e.metaKey) && e.key === "Enter"){
+            addFromDraft();
+          }
+        });
+      }
+
+      // -----------------------------
+      // Draft
+      // -----------------------------
+      function saveDraft(){
+        const draft = { title: el.newTitle.value, details: el.newDetails.value };
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      }
+      function hydrateDraft(){
+        try{
+          const raw = localStorage.getItem(DRAFT_KEY);
+          if(!raw) return;
+          const d = JSON.parse(raw);
+          if(typeof d?.title === "string") el.newTitle.value = d.title;
+          if(typeof d?.details === "string") el.newDetails.value = d.details;
+        }catch{}
+      }
+
+      // -----------------------------
+      // CRUD
+      // -----------------------------
+      function addFromDraft(){
+        const title = (el.newTitle.value || "").trim();
+        const details = (el.newDetails.value || "").trim();
+
+        if(!title){
+          alert("Give the feature a title first.");
+          el.newTitle.focus();
+          return;
+        }
+
+        const now = Date.now();
+        const maxActiveOrder = getTabItems("active").reduce((m, it) => Math.max(m, it.orderActive), 0);
+
+        /** @type {FeatureItem} */
+        const item = {
+          id: cryptoId(),
+          title,
+          details,
+          notes: "",
+          completed: false,
+          open: true,
+          orderActive: maxActiveOrder + 1,
+          orderCompleted: 0,
+          createdAt: now,
+          updatedAt: now
+        };
+
+        state.items.push(item);
+        saveState();
+
+        // clear draft but keep focus
+        el.newTitle.value = "";
+        el.newDetails.value = "";
+        saveDraft();
+
+        // Ensure in Active tab so you see it immediately
+        switchTab("active");
+        render();
+
+        // Scroll a bit to list
+        setTimeout(() => {
+          const card = document.querySelector(`[data-id="${CSS.escape(item.id)}"]`);
+          if(card) card.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 0);
+      }
+
+      function toggleOpen(id){
+        const it = findById(id);
+        if(!it) return;
+        it.open = !it.open;
+        it.updatedAt = Date.now();
+        saveState();
+        render();
+      }
+
+      function toggleComplete(id){
+        const it = findById(id);
+        if(!it) return;
+
+        const now = Date.now();
+        it.completed = !it.completed;
+        it.updatedAt = now;
+
+        if(it.completed){
+          // move into completed order bucket at top (lowest order)
+          const minCompleted = getTabItems("completed").reduce((m, x) => Math.min(m, x.orderCompleted || 999999), 999999);
+          it.orderCompleted = (minCompleted === 999999) ? 1 : (minCompleted - 1);
+          it.open = false; // generally collapse when completed (still editable by expanding)
+        }else{
+          // move back to active at bottom
+          const maxActive = getTabItems("active").reduce((m, x) => Math.max(m, x.orderActive), 0);
+          it.orderActive = maxActive + 1;
+          it.open = true;
+        }
+
+        saveState();
+        render();
+      }
+
+      function removeItem(id){
+        const it = findById(id);
+        if(!it) return;
+        const ok = confirm(`Delete "${it.title}"?`);
+        if(!ok) return;
+        state.items = state.items.filter(x => x.id !== id);
+        saveState();
+        render();
+      }
+
+      function startEdit(id){
+        const it = findById(id);
+        if(!it) return;
+        it.open = true;
+        it._editing = true; // transient flag (not persisted)
+        render();
+      }
+
+      function cancelEdit(id){
+        const it = findById(id);
+        if(!it) return;
+        it._editing = false;
+        render();
+      }
+
+      function saveEdit(id){
+        const it = findById(id);
+        if(!it) return;
+
+        const card = document.querySelector(`[data-id="${CSS.escape(id)}"]`);
+        if(!card) return;
+
+        const t = card.querySelector(`[data-field="title"]`);
+        const d = card.querySelector(`[data-field="details"]`);
+        const n = card.querySelector(`[data-field="notes"]`);
+
+        const newTitle = (t?.value || "").trim();
+        const newDetails = (d?.value || "").trim();
+        const newNotes = (n?.value || "").trim();
+
+        if(!newTitle){
+          alert("Title cannot be empty.");
+          return;
+        }
+
+        it.title = newTitle;
+        it.details = newDetails;
+        it.notes = newNotes;
+        it.updatedAt = Date.now();
+        it._editing = false;
+
+        saveState();
+        render();
+      }
+
+      // -----------------------------
+      // Drag + Drop reorder
+      // -----------------------------
+      let dragId = null;
+
+      function onDragStart(e){
+        const id = e.currentTarget?.dataset?.id;
+        if(!id) return;
+        dragId = id;
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", id);
+
+        const card = e.currentTarget;
+        card.classList.add("dragging");
+      }
+
+      function onDragEnd(e){
+        const card = e.currentTarget;
+        card.classList.remove("dragging");
+        dragId = null;
+      }
+
+      function onDragOver(e){
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+      }
+
+      function onDrop(e){
+        e.preventDefault();
+        const dropId = e.currentTarget?.dataset?.id;
+        const sourceId = e.dataTransfer.getData("text/plain") || dragId;
+        if(!dropId || !sourceId || dropId === sourceId) return;
+
+        const listItems = getVisibleItemsSorted(); // items in the current tab (filtered by search)
+        const sourceIndex = listItems.findIndex(x => x.id === sourceId);
+        const dropIndex = listItems.findIndex(x => x.id === dropId);
+        if(sourceIndex < 0 || dropIndex < 0) return;
+
+        // Reorder in that visible list order, then write back orders for ALL items in tab
+        const reordered = listItems.slice();
+        const [moved] = reordered.splice(sourceIndex, 1);
+        reordered.splice(dropIndex, 0, moved);
+
+        applyOrderForCurrentTab(reordered);
+        saveState();
+        render();
+      }
+
+      function applyOrderForCurrentTab(orderedList){
+        // We only want to apply ordering within the current tab,
+        // and keep it stable: assign 1..n in that order
+        const tab = currentTab;
+        for(let i=0;i<orderedList.length;i++){
+          const it = orderedList[i];
+          if(tab === "active") it.orderActive = i + 1;
+          else it.orderCompleted = i + 1;
+        }
+
+        // Also, for items in the tab that are filtered out by search,
+        // we keep their relative order AFTER the visible ones.
+        const remaining = getTabItems(tab)
+          .filter(it => !orderedList.some(x => x.id === it.id))
+          .sort((a,b) => getOrder(a, tab) - getOrder(b, tab));
+
+        let base = orderedList.length;
+        for(let i=0;i<remaining.length;i++){
+          if(tab === "active") remaining[i].orderActive = base + i + 1;
+          else remaining[i].orderCompleted = base + i + 1;
+        }
+      }
+
+      // -----------------------------
+      // Render
+      // -----------------------------
+      function render(){
+        // Counts
+        const activeCount = getTabItems("active").length;
+        const completedCount = getTabItems("completed").length;
+        el.countActive.textContent = String(activeCount);
+        el.countCompleted.textContent = String(completedCount);
+
+        // Tabs UI
+        el.tabActive.dataset.active = String(currentTab === "active");
+        el.tabCompleted.dataset.active = String(currentTab === "completed");
+
+        // List
+        const items = getVisibleItemsSorted();
+
+        el.list.innerHTML = "";
+
+        if(items.length === 0){
+          const box = document.createElement("div");
+          box.className = "empty";
+          box.textContent = (searchQuery)
+            ? "No matches. Clear search to see items."
+            : (currentTab === "active"
+              ? "No active features yet. Add one above."
+              : "No completed features yet.");
+          el.list.appendChild(box);
+          return;
+        }
+
+        for(const it of items){
+          el.list.appendChild(renderCard(it));
+        }
+      }
+
+      function renderCard(it){
+        const card = document.createElement("div");
+        card.className = "card";
+        card.dataset.id = it.id;
+
+        // card is draggable, but we only want dragging from handle,
+        // so we set draggable on card and start from handle.
+        card.draggable = true;
+        card.addEventListener("dragstart", (e) => {
+          // Only allow drag if user started from handle
+          if(!e.target.closest(".dragHandle")){
+            e.preventDefault();
+            return;
+          }
+          onDragStart(e);
+        });
+        card.addEventListener("dragend", onDragEnd);
+        card.addEventListener("dragover", onDragOver);
+        card.addEventListener("drop", onDrop);
+
+        const header = document.createElement("div");
+        header.className = "cardHeader";
+
+        const handle = document.createElement("div");
+        handle.className = "dragHandle";
+        handle.title = "Drag to reorder";
+        handle.textContent = "⋮⋮";
+        header.appendChild(handle);
+
+        const toggle = document.createElement("div");
+        toggle.className = "toggleBtn";
+        toggle.title = it.open ? "Collapse" : "Expand";
+        toggle.textContent = it.open ? "▾" : "▸";
+        toggle.addEventListener("click", () => toggleOpen(it.id));
+        header.appendChild(toggle);
+
+        const title = document.createElement("div");
+        title.className = "cardTitle";
+
+        const name = document.createElement("div");
+        name.className = "name";
+        name.textContent = it.title;
+
+        const meta = document.createElement("div");
+        meta.className = "meta";
+
+        const statusPill = document.createElement("span");
+        statusPill.className = "pill " + (it.completed ? "good" : "warn");
+        statusPill.textContent = it.completed ? "Completed" : "Active";
+
+        const updated = document.createElement("span");
+        updated.className = "pill";
+        updated.textContent = "Updated: " + formatTime(it.updatedAt);
+
+        const hasNotes = (it.notes || "").trim().length > 0;
+        const notePill = document.createElement("span");
+        notePill.className = "pill " + (hasNotes ? "bad" : "");
+        notePill.textContent = hasNotes ? "Has Notes" : "No Notes";
+
+        meta.appendChild(statusPill);
+        meta.appendChild(updated);
+        meta.appendChild(notePill);
+
+        title.appendChild(name);
+        title.appendChild(meta);
+
+        header.appendChild(title);
+
+        const actions = document.createElement("div");
+        actions.className = "cardActions";
+
+        const btnComplete = document.createElement("button");
+        btnComplete.className = "miniBtn";
+        btnComplete.textContent = it.completed ? "Reopen" : "Complete";
+        btnComplete.title = it.completed ? "Move back to Active" : "Move to Completed";
+        btnComplete.addEventListener("click", () => toggleComplete(it.id));
+        actions.appendChild(btnComplete);
+
+        const btnEdit = document.createElement("button");
+        btnEdit.className = "miniBtn";
+        btnEdit.textContent = it._editing ? "Editing…" : "Edit";
+        btnEdit.title = "Edit title/details/notes";
+        btnEdit.disabled = !!it._editing;
+        btnEdit.addEventListener("click", () => startEdit(it.id));
+        actions.appendChild(btnEdit);
+
+        const btnDelete = document.createElement("button");
+        btnDelete.className = "miniBtn miniDanger";
+        btnDelete.textContent = "Delete";
+        btnDelete.title = "Delete this feature";
+        btnDelete.addEventListener("click", () => removeItem(it.id));
+        actions.appendChild(btnDelete);
+
+        header.appendChild(actions);
+
+        const body = document.createElement("div");
+        body.className = "cardBody";
+        body.dataset.open = String(!!it.open);
+
+        // View content
+        if((it.details || "").trim().length){
+          const st = document.createElement("div");
+          st.className = "sectionTitle";
+          st.textContent = "Details";
+          body.appendChild(st);
+
+          const cb = document.createElement("div");
+          cb.className = "contentBox";
+          cb.textContent = it.details;
+          body.appendChild(cb);
+        }
+
+        // Notes content (always show section if open so you remember it exists)
+        const st2 = document.createElement("div");
+        st2.className = "sectionTitle";
+        st2.textContent = "Notes (kept even when completed)";
+        body.appendChild(st2);
+
+        const notesBox = document.createElement("div");
+        notesBox.className = "contentBox";
+        notesBox.textContent = (it.notes || "").trim().length ? it.notes : "—";
+        body.appendChild(notesBox);
+
+        // Editor
+        const editor = document.createElement("div");
+        editor.className = "editor";
+        editor.dataset.editing = String(!!it._editing);
+
+        const edGrid = document.createElement("div");
+        edGrid.className = "grid";
+
+        // Title edit
+        const titleWrap = document.createElement("div");
+        const labT = document.createElement("label");
+        labT.textContent = "Edit title";
+        const inT = document.createElement("input");
+        inT.type = "text";
+        inT.value = it.title;
+        inT.dataset.field = "title";
+        titleWrap.appendChild(labT);
+        titleWrap.appendChild(inT);
+
+        // Details edit
+        const detWrap = document.createElement("div");
+        const labD = document.createElement("label");
+        labD.textContent = "Edit details";
+        const taD = document.createElement("textarea");
+        taD.value = it.details || "";
+        taD.dataset.field = "details";
+        detWrap.appendChild(labD);
+        detWrap.appendChild(taD);
+
+        edGrid.appendChild(titleWrap);
+        edGrid.appendChild(detWrap);
+
+        // Notes edit full width by adding another row
+        const notesWrap = document.createElement("div");
+        notesWrap.style.gridColumn = "1 / -1";
+        const labN = document.createElement("label");
+        labN.textContent = "Edit notes";
+        const taN = document.createElement("textarea");
+        taN.value = it.notes || "";
+        taN.dataset.field = "notes";
+        taN.placeholder = "Add notes here… (kept even if completed)";
+        notesWrap.appendChild(labN);
+        notesWrap.appendChild(taN);
+
+        editor.appendChild(edGrid);
+        editor.appendChild(notesWrap);
+
+        const edRow = document.createElement("div");
+        edRow.className = "row";
+        edRow.style.marginTop = "10px";
+        edRow.style.justifyContent = "flex-end";
+
+        const btnSave = document.createElement("button");
+        btnSave.className = "btn btnPrimary";
+        btnSave.textContent = "Save";
+        btnSave.addEventListener("click", () => saveEdit(it.id));
+
+        const btnCancel = document.createElement("button");
+        btnCancel.className = "btn";
+        btnCancel.textContent = "Cancel";
+        btnCancel.addEventListener("click", () => cancelEdit(it.id));
+
+        edRow.appendChild(btnCancel);
+        edRow.appendChild(btnSave);
+
+        editor.appendChild(edRow);
+
+        body.appendChild(editor);
+
+        card.appendChild(header);
+        card.appendChild(body);
+
+        return card;
+      }
+
+      // -----------------------------
+      // Helpers
+      // -----------------------------
+      function switchTab(tab){
+        currentTab = tab;
+        render();
+      }
+
+      function getTabItems(tab){
+        if(tab === "active") return state.items.filter(x => !x.completed);
+        return state.items.filter(x => x.completed);
+      }
+
+      function getOrder(it, tab){
+        return tab === "active" ? (it.orderActive || 0) : (it.orderCompleted || 0);
+      }
+
+      function matchesSearch(it){
+        if(!searchQuery) return true;
+        const hay = [
+          it.title || "",
+          it.details || "",
+          it.notes || ""
+        ].join("\n").toLowerCase();
+        return hay.includes(searchQuery);
+      }
+
+      function getVisibleItemsSorted(){
+        const tabItems = getTabItems(currentTab).filter(matchesSearch);
+        return tabItems.sort((a,b) => getOrder(a, currentTab) - getOrder(b, currentTab));
+      }
+
+      function findById(id){
+        return state.items.find(x => x.id === id) || null;
+      }
+
+      function saveState(){
+        // strip transient flags
+        const clean = {
+          items: state.items.map(it => {
+            const copy = { ...it };
+            delete copy._editing;
+            return copy;
+          })
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(clean));
+      }
+
+      function loadState(){
+        try{
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if(!raw) return { items: [] };
+          const parsed = JSON.parse(raw);
+          if(!parsed || !Array.isArray(parsed.items)) return { items: [] };
+
+          // Ensure defaults
+          const items = parsed.items.map((it, idx) => normalizeItem(it, idx));
+          return { items };
+        }catch{
+          return { items: [] };
+        }
+      }
+
+      function normalizeItem(it, idx){
+        const now = Date.now();
+        return {
+          id: String(it.id || cryptoId()),
+          title: String(it.title || "Untitled Feature"),
+          details: String(it.details || ""),
+          notes: String(it.notes || ""),
+          completed: !!it.completed,
+          open: (typeof it.open === "boolean") ? it.open : false,
+          orderActive: (typeof it.orderActive === "number") ? it.orderActive : (idx + 1),
+          orderCompleted: (typeof it.orderCompleted === "number") ? it.orderCompleted : (idx + 1),
+          createdAt: (typeof it.createdAt === "number") ? it.createdAt : now,
+          updatedAt: (typeof it.updatedAt === "number") ? it.updatedAt : now
+        };
+      }
+
+      function cryptoId(){
+        if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
+        return "id-" + Math.random().toString(16).slice(2) + "-" + Date.now().toString(16);
+      }
+
+      function formatTime(ts){
+        try{
+          const d = new Date(ts);
+          return d.toLocaleString(undefined, { year:"2-digit", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" });
+        }catch{
+          return "";
+        }
+      }
+
+      // -----------------------------
+      // Export / Import
+      // -----------------------------
+      function exportJSON(){
+        const data = localStorage.getItem(STORAGE_KEY) || JSON.stringify({ items: [] });
+        const blob = new Blob([data], { type: "application/json" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "features_notes_export.json";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(a.href);
+      }
+
+      function importJSON(){
+        const file = el.fileInput.files && el.fileInput.files[0];
+        if(!file) return;
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          try{
+            const parsed = JSON.parse(String(reader.result || ""));
+            if(!parsed || !Array.isArray(parsed.items)) throw new Error("Invalid file format.");
+            // Merge strategy: replace everything
+            const items = parsed.items.map((it, idx) => normalizeItem(it, idx));
+            state = { items };
+            saveState();
+            render();
+            alert("Import successful.");
+          }catch(err){
+            alert("Import failed: " + (err && err.message ? err.message : "Unknown error"));
+          }finally{
+            el.fileInput.value = "";
+          }
+        };
+        reader.readAsText(file);
+      }
+
+    })();
+  </script>
+</body>
+</html>
