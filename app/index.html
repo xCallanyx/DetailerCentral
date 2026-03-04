@@ -1722,10 +1722,7 @@
             <div id="projects-view" class="view">
                 <div class="page-header">
                     <h1 class="page-title">Projects</h1>
-                    <div style="display:flex; gap:8px; align-items:center;">
-                        <button class="btn btn-sm btn-secondary" id="weight-unit-toggle-list" style="font-size:0.8rem;"></button>
-                        <button class="btn btn-primary" id="add-project-btn">+ New Project</button>
-                    </div>
+                    <button class="btn btn-primary" id="add-project-btn">+ New Project</button>
                 </div>
                 <ul class="project-list" id="project-list">
                     <!-- Projects populated by JS -->
@@ -1734,10 +1731,7 @@
 
             <!-- Project Detail View -->
             <div id="project-detail-view" class="view">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-                    <button class="back-btn" id="back-to-projects" style="margin-bottom:0;">&larr; Back to Projects</button>
-                    <button class="btn btn-sm btn-secondary" id="weight-unit-toggle" style="font-size:0.8rem;"></button>
-                </div>
+                <button class="back-btn" id="back-to-projects">&larr; Back to Projects</button>
 
                 <div class="project-header" id="project-header">
                     <!-- Project header populated by JS -->
@@ -2107,8 +2101,8 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label class="form-label" for="scope-est-tons">Estimated Tons</label>
-                        <input type="number" step="0.01" class="form-input" id="scope-est-tons" required>
+                        <label class="form-label" for="scope-est-lbs">Estimated lbs</label>
+                        <input type="number" step="1" class="form-input" id="scope-est-lbs" required>
                     </div>
                     <div class="form-group">
                         <label class="form-label" for="scope-hours-budget">Hours Budget</label>
@@ -2143,8 +2137,7 @@
                         <select class="form-select" id="submittal-status">
                             <option value="Drafting">Drafting</option>
                             <option value="Submitted">Submitted</option>
-                            <option value="Returned Approved">Returned Approved</option>
-                            <option value="Revise & Resubmit">Revise & Resubmit</option>
+                            <option value="Approved">Approved</option>
                             <option value="Released">Released</option>
                         </select>
                     </div>
@@ -2152,6 +2145,10 @@
                         <label class="form-label" for="submittal-rev">Revision</label>
                         <input type="text" class="form-input" id="submittal-rev" value="0">
                     </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="submittal-weight">Weight (lbs)</label>
+                    <input type="number" step="1" class="form-input" id="submittal-weight" value="0">
                 </div>
                 <div class="form-row">
                     <div class="form-group">
@@ -2390,6 +2387,31 @@
                 if (!state.tasks) state.tasks = [];
                 if (!state.notes) state.notes = [];
                 if (!state.weeklyReflections) state.weeklyReflections = {};
+
+                // Schema v1→v2: tons to lbs, submittal weights
+                if (state.schemaVersion < 2) {
+                    (state.projects || []).forEach(p => {
+                        (p.scopes || []).forEach(s => {
+                            // Convert estimatedTons → estimatedLbs
+                            if (s.estimatedTons !== undefined && s.estimatedLbs === undefined) {
+                                s.estimatedLbs = Math.round(s.estimatedTons * 2000);
+                            }
+                            if (s.estimatedLbs === undefined) s.estimatedLbs = 0;
+                            // Add weight to submittals
+                            (s.submittals || []).forEach(sub => {
+                                if (sub.weight === undefined) sub.weight = 0;
+                            });
+                            // Map old statuses
+                            (s.submittals || []).forEach(sub => {
+                                if (sub.status === 'Returned Approved') sub.status = 'Approved';
+                                if (sub.status === 'Revise & Resubmit') sub.status = 'Drafting';
+                                if (sub.status === 'Sent') sub.status = 'Submitted';
+                                if (sub.status === 'Pending') sub.status = 'Submitted';
+                            });
+                        });
+                    });
+                    state.schemaVersion = 2;
+                }
                 return state;
             },
 
@@ -2404,7 +2426,7 @@
 
             saveState(state) {
                 state.app = 'DetailerCentral';
-                state.schemaVersion = 1;
+                state.schemaVersion = 2;
                 state.lastSavedAt = new Date().toISOString();
                 state.deviceId = this.getDeviceId();
 
@@ -2472,12 +2494,11 @@
                     project.scopes[index] = {
                         ...existing,
                         name: scope.name,
-                        estimatedTons: scope.estimatedTons,
+                        estimatedLbs: scope.estimatedLbs,
                         hoursBudget: scope.hoursBudget
                     };
                 } else {
                     scope.id = this.generateId();
-                    scope.actualTons = 0;
                     scope.hoursSpent = 0;
                     scope.submittals = [];
                     project.scopes.push(scope);
@@ -2979,27 +3000,6 @@
             timerInterval: null,
             timerSeconds: 0,
             currentTimesheetWeek: null,
-            weightUnit: localStorage.getItem('detailercentral_weight_unit') || 'tons',
-
-            // Convert tons to display value based on current unit
-            displayWeight(tons) {
-                if (this.weightUnit === 'lbs') return (tons * 2000).toFixed(0);
-                return tons.toFixed(1);
-            },
-
-            weightLabel() {
-                return this.weightUnit === 'lbs' ? 'lbs' : 'Tons';
-            },
-
-            toggleWeightUnit() {
-                this.weightUnit = this.weightUnit === 'tons' ? 'lbs' : 'tons';
-                localStorage.setItem('detailercentral_weight_unit', this.weightUnit);
-                // Re-render views that show weight
-                this.renderProjectList();
-                if (this.currentProjectId) {
-                    this.renderProjectDetail(this.currentProjectId);
-                }
-            },
 
             init() {
                 // Set initial timesheet week to current week's Sunday
@@ -3050,13 +3050,6 @@
                     });
                 });
 
-                // Weight unit toggles
-                document.getElementById('weight-unit-toggle').addEventListener('click', () => {
-                    this.toggleWeightUnit();
-                });
-                document.getElementById('weight-unit-toggle-list').addEventListener('click', () => {
-                    this.toggleWeightUnit();
-                });
             },
 
             showView(viewName) {
@@ -3122,14 +3115,6 @@
 
                     // Show release date field when status is Released
                     releaseDateGroup.style.display = status === 'Released' ? 'block' : 'none';
-
-                    // Prompt to increment revision on Revise & Resubmit
-                    if (status === 'Revise & Resubmit') {
-                        const currentRev = parseInt(revInput.value) || 0;
-                        if (confirm(`Increment revision from ${currentRev} to ${currentRev + 1}?`)) {
-                            revInput.value = currentRev + 1;
-                        }
-                    }
                 });
 
                 // Delete submittal button handler
@@ -3172,7 +3157,7 @@
                     const scope = {
                         id: document.getElementById('scope-id').value || null,
                         name: document.getElementById('scope-name').value,
-                        estimatedTons: parseFloat(document.getElementById('scope-est-tons').value),
+                        estimatedLbs: parseFloat(document.getElementById('scope-est-lbs').value) || 0,
                         hoursBudget: parseFloat(document.getElementById('scope-hours-budget').value)
                     };
                     Store.saveScope(this.currentProjectId, scope);
@@ -3189,6 +3174,7 @@
                         title: document.getElementById('submittal-title').value,
                         status: document.getElementById('submittal-status').value,
                         currentRev: document.getElementById('submittal-rev').value,
+                        weight: parseFloat(document.getElementById('submittal-weight').value) || 0,
                         targetDate: document.getElementById('submittal-target-date').value,
                         sentDate: document.getElementById('submittal-sent-date').value,
                         releaseDate: document.getElementById('submittal-release-date').value
@@ -3259,7 +3245,7 @@
                         }
                         targetDates[key].count++;
                         const targetDate = new Date(sub.targetDate);
-                        if (targetDate < today && sub.status !== 'Released' && sub.status !== 'Returned Approved') {
+                        if (targetDate < today && sub.status !== 'Released' && sub.status !== 'Approved') {
                             targetDates[key].overdue = true;
                         }
                     }
@@ -3326,7 +3312,7 @@
 
                 submittals.forEach(sub => {
                     // Overdue
-                    if (sub.targetDate && sub.status !== 'Released' && sub.status !== 'Returned Approved') {
+                    if (sub.targetDate && sub.status !== 'Released' && sub.status !== 'Approved') {
                         const targetDate = new Date(sub.targetDate);
                         if (targetDate < today) {
                             alerts.push({
@@ -3338,15 +3324,6 @@
                         }
                     }
 
-                    // Action Required
-                    if (sub.status === 'Revise & Resubmit') {
-                        alerts.push({
-                            type: 'action-required',
-                            title: sub.title,
-                            subtitle: `${sub.projectName} - ${sub.scopeName}`,
-                            message: 'Revise & Resubmit - Action Required'
-                        });
-                    }
                 });
 
                 if (alerts.length === 0) {
@@ -3375,10 +3352,6 @@
                 const container = document.getElementById('project-list');
                 const projects = Store.getProjects();
 
-                // Update toggle button text
-                const listToggle = document.getElementById('weight-unit-toggle-list');
-                if (listToggle) listToggle.textContent = this.weightUnit === 'tons' ? 'Show lbs' : 'Show Tons';
-
                 if (projects.length === 0) {
                     container.innerHTML = `
                         <div class="empty-state">
@@ -3390,7 +3363,7 @@
                 }
 
                 container.innerHTML = projects.map(project => {
-                    const totalEstTons = project.scopes.reduce((sum, s) => sum + (s.estimatedTons || 0), 0);
+                    const totalEstLbs = project.scopes.reduce((sum, s) => sum + (s.estimatedLbs || 0), 0);
                     const totalSubmittals = project.scopes.reduce((sum, s) => sum + s.submittals.length, 0);
 
                     return `
@@ -3401,8 +3374,8 @@
                             </div>
                             <div class="project-stats">
                                 <div>
-                                    <div class="stat-value">${this.displayWeight(totalEstTons)}</div>
-                                    <div class="stat-label">Est. ${this.weightLabel()}</div>
+                                    <div class="stat-value">${totalEstLbs.toLocaleString()}</div>
+                                    <div class="stat-label">Est. lbs</div>
                                 </div>
                                 <div>
                                     <div class="stat-value">${project.scopes.length}</div>
@@ -3472,19 +3445,16 @@
                 if (!project) return;
 
                 // Header
-                const totalEstTons = project.scopes.reduce((sum, s) => sum + (s.estimatedTons || 0), 0);
-                const totalActTons = project.scopes.reduce((sum, s) => sum + (s.actualTons || 0), 0);
+                const totalEstLbs = project.scopes.reduce((sum, s) => sum + (s.estimatedLbs || 0), 0);
+                const totalDetailedLbs = project.scopes.reduce((sum, s) => {
+                    return sum + (s.submittals || []).reduce((ss, sub) => ss + (sub.weight || 0), 0);
+                }, 0);
                 const totalEstHours = project.scopes.reduce((sum, s) => sum + (s.hoursBudget || 0), 0);
                 const totalActHours = project.scopes.reduce((sum, s) => sum + (s.hoursSpent || 0), 0);
 
-                const weightVariance = totalEstTons > 0 ? ((totalActTons - totalEstTons) / totalEstTons * 100) : 0;
+                const weightVariance = totalEstLbs > 0 ? ((totalDetailedLbs - totalEstLbs) / totalEstLbs * 100) : 0;
                 const hoursVariance = totalEstHours > 0 ? ((totalActHours - totalEstHours) / totalEstHours * 100) : 0;
 
-                // Update toggle button text
-                const detailToggle = document.getElementById('weight-unit-toggle');
-                if (detailToggle) detailToggle.textContent = this.weightUnit === 'tons' ? 'Show lbs' : 'Show Tons';
-
-                const wLabel = this.weightLabel();
                 document.getElementById('project-header').innerHTML = `
                     <div class="project-header-top">
                         <div>
@@ -3497,12 +3467,12 @@
                         </div>
                         <div class="project-aggregate-stats">
                             <div class="aggregate-stat">
-                                <div class="aggregate-value">${this.displayWeight(totalEstTons)}</div>
-                                <div class="aggregate-label">Est. ${wLabel}</div>
+                                <div class="aggregate-value">${totalEstLbs.toLocaleString()}</div>
+                                <div class="aggregate-label">Est. lbs</div>
                             </div>
                             <div class="aggregate-stat">
-                                <div class="aggregate-value ${weightVariance > 0 ? 'variance-positive' : 'variance-negative'}">${this.displayWeight(totalActTons)}</div>
-                                <div class="aggregate-label">Actual ${wLabel} (${weightVariance >= 0 ? '+' : ''}${weightVariance.toFixed(1)}%)</div>
+                                <div class="aggregate-value ${weightVariance > 0 ? 'variance-positive' : 'variance-negative'}">${totalDetailedLbs.toLocaleString()}</div>
+                                <div class="aggregate-label">Detailed lbs (${weightVariance >= 0 ? '+' : ''}${weightVariance.toFixed(1)}%)</div>
                             </div>
                             <div class="aggregate-stat">
                                 <div class="aggregate-value">${totalEstHours.toFixed(1)}</div>
@@ -3562,8 +3532,10 @@
                 }
 
                 container.innerHTML = project.scopes.map(scope => {
-                    const weightVariance = scope.estimatedTons > 0
-                        ? ((scope.actualTons - scope.estimatedTons) / scope.estimatedTons * 100)
+                    const detailedLbs = (scope.submittals || []).reduce((sum, sub) => sum + (sub.weight || 0), 0);
+                    const estLbs = scope.estimatedLbs || 0;
+                    const weightVariance = estLbs > 0
+                        ? ((detailedLbs - estLbs) / estLbs * 100)
                         : 0;
                     const hoursVariance = scope.hoursBudget > 0
                         ? ((scope.hoursSpent - scope.hoursBudget) / scope.hoursBudget * 100)
@@ -3578,15 +3550,12 @@
                                 <button class="btn btn-sm btn-danger delete-scope-btn" data-scope-id="${scope.id}" style="margin-right: 1rem;">Delete</button>
                                 <div class="scope-metrics">
                                     <div class="scope-metric">
-                                        <div class="metric-label">Est. ${this.weightLabel()}</div>
-                                        <div class="metric-value">${this.displayWeight(scope.estimatedTons)}</div>
+                                        <div class="metric-label">Est. lbs</div>
+                                        <div class="metric-value">${estLbs.toLocaleString()}</div>
                                     </div>
                                     <div class="scope-metric">
-                                        <div class="metric-label">Actual ${this.weightLabel()}</div>
-                                        <div class="metric-value">
-                                            <input type="number" step="${this.weightUnit === 'lbs' ? '1' : '0.01'}" class="form-input-inline actual-tons-input"
-                                                   value="${this.displayWeight(scope.actualTons)}" data-scope-id="${scope.id}">
-                                        </div>
+                                        <div class="metric-label">Detailed lbs</div>
+                                        <div class="metric-value">${detailedLbs.toLocaleString()}</div>
                                     </div>
                                     <div class="scope-metric">
                                         <div class="metric-label">Variance</div>
@@ -3618,9 +3587,9 @@
                                             <tr>
                                                 <th>Title</th>
                                                 <th>Rev</th>
+                                                <th>Weight (lbs)</th>
                                                 <th>Status</th>
                                                 <th>Target</th>
-                                                <th>Sent</th>
                                                 <th>Actions</th>
                                             </tr>
                                         </thead>
@@ -3629,9 +3598,21 @@
                                                 <tr>
                                                     <td>${sub.title}</td>
                                                     <td>${sub.currentRev}</td>
-                                                    <td><span class="badge badge-${this.getStatusClass(sub.status)}">${sub.status}</span></td>
+                                                    <td>
+                                                        <input type="number" step="1" class="form-input-inline inline-weight-input"
+                                                               value="${sub.weight || 0}" data-scope-id="${scope.id}" data-submittal-id="${sub.id}"
+                                                               style="width:80px;">
+                                                    </td>
+                                                    <td>
+                                                        <select class="form-select inline-status-select" data-scope-id="${scope.id}" data-submittal-id="${sub.id}"
+                                                                style="padding:0.25rem 0.4rem; font-size:0.8rem; width:auto;">
+                                                            <option value="Drafting" ${sub.status === 'Drafting' ? 'selected' : ''}>Drafting</option>
+                                                            <option value="Submitted" ${sub.status === 'Submitted' ? 'selected' : ''}>Submitted</option>
+                                                            <option value="Approved" ${sub.status === 'Approved' ? 'selected' : ''}>Approved</option>
+                                                            <option value="Released" ${sub.status === 'Released' ? 'selected' : ''}>Released</option>
+                                                        </select>
+                                                    </td>
                                                     <td>${sub.targetDate || '-'}</td>
-                                                    <td>${sub.sentDate || '-'}</td>
                                                     <td>
                                                         <button class="btn btn-sm btn-secondary edit-submittal-btn"
                                                                 data-scope-id="${scope.id}" data-submittal-id="${sub.id}">Edit</button>
@@ -3664,7 +3645,7 @@
                         if (scope) {
                             document.getElementById('scope-id').value = scope.id;
                             document.getElementById('scope-name').value = scope.name;
-                            document.getElementById('scope-est-tons').value = scope.estimatedTons;
+                            document.getElementById('scope-est-lbs').value = scope.estimatedLbs || 0;
                             document.getElementById('scope-hours-budget').value = scope.hoursBudget;
                             document.getElementById('scope-modal').classList.add('active');
                         }
@@ -3685,16 +3666,37 @@
                     });
                 });
 
-                // Bind inline edits
-                container.querySelectorAll('.actual-tons-input').forEach(input => {
+                // Bind inline weight edits on submittals
+                container.querySelectorAll('.inline-weight-input').forEach(input => {
                     input.addEventListener('change', (e) => {
-                        let val = parseFloat(e.target.value) || 0;
-                        // Convert back to tons if displaying lbs
-                        if (this.weightUnit === 'lbs') val = val / 2000;
-                        Store.updateScopeMetric(this.currentProjectId, e.target.dataset.scopeId, 'actualTons', val);
-                        this.renderProjectDetail(this.currentProjectId);
+                        const scopeId = e.target.dataset.scopeId;
+                        const submittalId = e.target.dataset.submittalId;
+                        const scope = project.scopes.find(s => s.id === scopeId);
+                        const sub = scope && scope.submittals.find(s => s.id === submittalId);
+                        if (sub) {
+                            sub.weight = parseFloat(e.target.value) || 0;
+                            Store.saveSubmittal(this.currentProjectId, scopeId, sub);
+                            this.renderProjectDetail(this.currentProjectId);
+                        }
                     });
                     input.addEventListener('click', (e) => e.stopPropagation());
+                });
+
+                // Bind inline status dropdowns on submittals
+                container.querySelectorAll('.inline-status-select').forEach(select => {
+                    select.addEventListener('change', (e) => {
+                        const scopeId = e.target.dataset.scopeId;
+                        const submittalId = e.target.dataset.submittalId;
+                        const scope = project.scopes.find(s => s.id === scopeId);
+                        const sub = scope && scope.submittals.find(s => s.id === submittalId);
+                        if (sub) {
+                            sub.status = e.target.value;
+                            Store.saveSubmittal(this.currentProjectId, scopeId, sub);
+                            this.renderProjectDetail(this.currentProjectId);
+                            this.renderDashboard();
+                        }
+                    });
+                    select.addEventListener('click', (e) => e.stopPropagation());
                 });
 
                 container.querySelectorAll('.hours-spent-input').forEach(input => {
@@ -3733,6 +3735,7 @@
                         document.getElementById('submittal-title').value = submittal.title;
                         document.getElementById('submittal-status').value = submittal.status;
                         document.getElementById('submittal-rev').value = submittal.currentRev;
+                        document.getElementById('submittal-weight').value = submittal.weight || 0;
                         document.getElementById('submittal-target-date').value = submittal.targetDate || '';
                         document.getElementById('submittal-sent-date').value = submittal.sentDate || '';
                         document.getElementById('submittal-release-date').value = submittal.releaseDate || '';
