@@ -16,6 +16,7 @@ const App = {
 
         ProjectsModule.init(this);
         SubmittalsPlannerModule.init(this);
+        SubmittalsExecutionModule.init(this);
         this.bindNavigation();
         this.bindModals();
         this.bindForms();
@@ -26,6 +27,10 @@ const App = {
         this.bindQuickCapture();
         this.bindTimesheetEvents();
         this.bindSettingsEvents();
+
+        // Run auto-task generation on app load
+        this.refreshAutoTasks();
+
         this.renderDashboard();
         this.renderProjectList();
         this.renderTasks();
@@ -63,6 +68,17 @@ const App = {
     showView(viewName) {
         document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
         document.getElementById(`${viewName}-view`).classList.add('active');
+        if (viewName === 'execution') {
+            this.refreshAutoTasks();
+            SubmittalsExecutionModule.render();
+        }
+    },
+
+    // Run urgency auto-task generation and persist
+    refreshAutoTasks() {
+        const state = Store.getState();
+        UrgencyRules.buildMaterialUrgencyTasks(state);
+        Store.saveState(state);
     },
 
     // Tabs
