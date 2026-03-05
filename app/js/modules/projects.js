@@ -107,7 +107,7 @@ const ProjectsModule = {
         // Header
         const totalEstLbs = project.scopes.reduce((sum, s) => sum + (s.estimatedLbs || 0), 0);
         const totalDetailedLbs = project.scopes.reduce((sum, s) => {
-            return sum + (s.submittals || []).reduce((ss, sub) => ss + (sub.weight || 0), 0);
+            return sum + (s.submittals || []).reduce((ss, sub) => ss + Selectors.getSubmittalDetailedLbs(sub), 0);
         }, 0);
         const totalEstHours = project.scopes.reduce((sum, s) => sum + (s.hoursBudget || 0), 0);
         const totalActHours = project.scopes.reduce((sum, s) => sum + (s.hoursSpent || 0), 0);
@@ -195,7 +195,7 @@ const ProjectsModule = {
         }
 
         container.innerHTML = project.scopes.map(scope => {
-            const detailedLbs = (scope.submittals || []).reduce((sum, sub) => sum + (sub.weight || 0), 0);
+            const detailedLbs = (scope.submittals || []).reduce((sum, sub) => sum + Selectors.getSubmittalDetailedLbs(sub), 0);
             const estLbs = scope.estimatedLbs || 0;
             const weightVariance = estLbs > 0
                 ? ((detailedLbs - estLbs) / estLbs * 100)

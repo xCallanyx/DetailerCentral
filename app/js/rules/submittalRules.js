@@ -154,7 +154,7 @@ const SubmittalRules = {
             status: this.STATUSES.DRAFTING,
             reviewOutcome: this.REVIEW_OUTCOMES.NONE,
             rev: 0,
-            weight: 0,
+            scopeWeights: [],
             targetSubmitDate: overrides.targetSubmitDate || '',
             targetReleaseDate: '',
             submittedAt: null,

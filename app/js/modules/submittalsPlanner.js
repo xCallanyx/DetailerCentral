@@ -33,10 +33,11 @@ const SubmittalsPlannerModule = {
             const existingId = document.getElementById('submittal-id').value || null;
 
             // Build submittal object with new field names
+            const detailedLbs = parseFloat(document.getElementById('submittal-weight').value) || 0;
             const submittal = {
                 id: existingId,
                 title: document.getElementById('submittal-title').value,
-                weight: parseFloat(document.getElementById('submittal-weight').value) || 0,
+                scopeWeights: [{ scopeId: scopeId, detailedLbs: detailedLbs }],
                 targetSubmitDate: document.getElementById('submittal-target-date').value,
                 targetReleaseDate: document.getElementById('submittal-target-release-date').value
             };
@@ -57,6 +58,11 @@ const SubmittalsPlannerModule = {
                     submittal.releasedAt = existing.releasedAt;
                     submittal.releaseEntries = existing.releaseEntries;
                     submittal.history = existing.history;
+                    // Update detailedLbs on existing scopeWeights entry for this scope
+                    if (existing.scopeWeights && existing.scopeWeights.length > 0) {
+                        submittal.scopeWeights = existing.scopeWeights;
+                        submittal.scopeWeights[0].detailedLbs = detailedLbs;
+                    }
                 }
             } else {
                 // New submittal defaults
@@ -105,7 +111,7 @@ const SubmittalsPlannerModule = {
                             <td>${sub.rev}</td>
                             <td>
                                 <input type="number" step="1" class="form-input-inline inline-weight-input"
-                                       value="${sub.weight || 0}" data-scope-id="${scope.id}" data-submittal-id="${sub.id}"
+                                       value="${Selectors.getSubmittalDetailedLbs(sub)}" data-scope-id="${scope.id}" data-submittal-id="${sub.id}"
                                        style="width:80px;">
                             </td>
                             <td><span class="badge badge-${statusClass}">${displayStatus}</span></td>
@@ -171,7 +177,12 @@ const SubmittalsPlannerModule = {
                 const scope = project.scopes.find(s => s.id === scopeId);
                 const sub = scope && scope.submittals.find(s => s.id === submittalId);
                 if (sub) {
-                    sub.weight = parseFloat(e.target.value) || 0;
+                    const newLbs = parseFloat(e.target.value) || 0;
+                    if (!sub.scopeWeights || sub.scopeWeights.length === 0) {
+                        sub.scopeWeights = [{ scopeId: scopeId, detailedLbs: newLbs }];
+                    } else {
+                        sub.scopeWeights[0].detailedLbs = newLbs;
+                    }
                     Store.saveSubmittal(this.app.currentProjectId, scopeId, sub);
                     this.app.renderProjectDetail(this.app.currentProjectId);
                 }
@@ -269,7 +280,7 @@ const SubmittalsPlannerModule = {
                 const sub = scope && scope.submittals.find(s => s.id === submittalId);
                 if (!sub) return;
 
-                const lbsStr = prompt(`Release weight (lbs) for "${sub.title}":`, sub.weight || 0);
+                const lbsStr = prompt(`Release weight (lbs) for "${sub.title}":`, Selectors.getSubmittalDetailedLbs(sub));
                 if (lbsStr === null) return;
                 const addedLbs = parseFloat(lbsStr);
                 if (!addedLbs || addedLbs <= 0) {
@@ -319,7 +330,7 @@ const SubmittalsPlannerModule = {
                 document.getElementById('submittal-id').value = submittal.id;
                 document.getElementById('submittal-scope-id').value = scopeId;
                 document.getElementById('submittal-title').value = submittal.title;
-                document.getElementById('submittal-weight').value = submittal.weight || 0;
+                document.getElementById('submittal-weight').value = Selectors.getSubmittalDetailedLbs(submittal);
                 document.getElementById('submittal-target-date').value = submittal.targetSubmitDate || '';
                 document.getElementById('submittal-target-release-date').value = submittal.targetReleaseDate || '';
                 document.getElementById('delete-submittal-btn').style.display = 'block';

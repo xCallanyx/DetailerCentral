@@ -1,7 +1,7 @@
 // ============================================
 // SCHEMA - Default State Structure
 // ============================================
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 const DEFAULT_STATE = {
     app: 'DetailerCentral',

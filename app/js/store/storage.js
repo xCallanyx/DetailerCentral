@@ -140,6 +140,24 @@ const Store = {
             state.schemaVersion = 4;
         }
 
+        // Schema v4→v5: Submittal scopeWeights model
+        if (state.schemaVersion < 5) {
+            (state.projects || []).forEach(p => {
+                (p.scopes || []).forEach(s => {
+                    (s.submittals || []).forEach(sub => {
+                        if (!sub.scopeWeights) {
+                            sub.scopeWeights = [{
+                                scopeId: s.id,
+                                detailedLbs: sub.weight || 0
+                            }];
+                        }
+                        delete sub.weight;
+                    });
+                });
+            });
+            state.schemaVersion = 5;
+        }
+
         state.schemaVersion = SCHEMA_VERSION;
         return state;
     },
@@ -277,6 +295,9 @@ const Store = {
             submittal.reviewOutcome = submittal.reviewOutcome || 'None';
             submittal.rev = submittal.rev || 0;
             submittal.releaseEntries = submittal.releaseEntries || [];
+            if (!submittal.scopeWeights) {
+                submittal.scopeWeights = [{ scopeId: scope.id, detailedLbs: 0 }];
+            }
             scope.submittals.push(submittal);
         }
         this.saveState(state);

@@ -2,6 +2,15 @@
 // SELECTORS - Computed Data from State
 // ============================================
 const Selectors = {
+    // Submittal weight helpers
+    getSubmittalDetailedLbs(sub) {
+        return (sub.scopeWeights || []).reduce((sum, sw) => sum + (sw.detailedLbs || 0), 0);
+    },
+
+    getSubmittalEstimatedLbs(sub) {
+        return (sub.scopeWeights || []).reduce((sum, sw) => sum + (sw.estimatedLbs || 0), 0);
+    },
+
     // Get all at-risk material requests with urgency info
     getAtRiskMaterialRequests(state) {
         return UrgencyRules.getAtRiskRequests(state);
